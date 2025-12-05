@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Мессенджер без Node.js</title>
+<style>
+body { font-family: Arial; background:#f0f2f5; display:flex; justify-content:center; padding-top:30px; }
+#container { width:600px; background:white; border-radius:10px; padding:20px; box-shadow:0 4px 10px rgba(0,0,0,0.1);}
+#chat { border:1px solid #ccc; height:200px; overflow-y:scroll; padding:10px; margin-bottom:10px; border-radius:5px; background:#fafafa;}
+input, button { padding:5px; margin-right:5px; border-radius:5px; border:1px solid #ccc;}
+video { width:280px; margin:5px; border-radius:5px; border:1px solid #ccc;}
+#videos { display:flex; }
+</style>
+</head>
+<body>
+<div id="container">
+<h2>Мессенджер без Node.js</h2>
+<div>
+Ваш ID: <span id="myId"></span><br>
+Подключиться к ID: <input id="peerId"><button onclick="connectPeer()">Подключиться</button>
+</div>
+<div id="chat"></div>
+<input id="msg" placeholder="Сообщение"><button onclick="sendMessage()">Отправить</button>
+<hr>
+<div id="videos">
+<video id="myVideo" autoplay muted></video>
+<video id="userVideo" autoplay></video>
+</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.4.7/dist/peerjs.min.js"></script>
+<script>
+let myStream;
+let peer = new Peer();
+let conn, call;
+
+peer.on('open', id => {
+  document.getElementById('myId').innerText = id;
+});
+
+// Получаем камеру и микрофон
+navigator.mediaDevices.getUserMedia({video:true, audio:true}).then(stream => {
+    myStream = stream;
+    document.getElementById('myVideo').srcObject = stream;
+});
+
+// Приём сообщений
+peer.on('connection', c => {
+  conn = c;
+  conn.on('data', data => {
+    const chat = document.getElementById('chat');
+    chat.innerHTML += "<p>Собеседник: " + data + "</p>";
+  });
+});
+
+// Приём звонка
+peer.on('call', c => {
+    call = c;
+    call.answer(myStream);
+    call.on('stream', remoteStream => {
+        document.getElementById('userVideo').srcObject = remoteStream;
+    });
+});
+
+// Подключение к другому пользователю
+function connectPeer(){
+  const id = document.getElementById('peerId').value;
+  conn = peer.connect(id);
+  conn.on('open', () => alert('Подключение установлено!'));
+  conn.on('data', data => {
+    const chat = document.getElementById('chat');
+    chat.innerHTML += "<p>Собеседник: " + data + "</p>";
+  });
+  call = peer.call(id, myStream);
+  call.on('stream', remoteStream => {
+    document.getElementById('userVideo').srcObject = remoteStream;
+  });
+}
+
+// Отправка сообщений
+function sendMessage(){
+  const msg = document.getElementById('msg').value;
+  if(conn && conn.open){
+    conn.send(msg);
+    const chat = document.getElementById('chat');
+    chat.innerHTML += "<p>Вы: " + msg + "</p>";
+    document.getElementById('msg').value = "";
+  } else alert('Нет соединения');
+}
+</script>
+</body>
+</html>
